@@ -4,19 +4,24 @@
 /*!
     \title Custom Linear Scale
     \ingroup quickgraphlibdemos
-    \brief Demonstrates custom tick formatting for large numbers.
+    \brief Demonstrates custom tick formatting with binned image data.
     \example customlinearscale
 
     \image examples/CustomLinearScale.png
 
-    This example demonstrates how to create custom tick labels for axes when working with large numbers. 
-    By using a custom tickDelegate for both X and Y axes, tick values are formatted to display in millions 
-    with an "M" suffix (e.g., "20M" instead of "20000000"), making the graph much more readable.
+    This example demonstrates how to display a 256×256 binned image with custom tick labels that represent 
+    the underlying data scale. The image bins are mapped to a 0-100M range, with tick labels formatted to 
+    display in millions with an "M" suffix (e.g., "20M" instead of "20000000"), making the graph much more readable.
 
     The example shows:
-    - Setting manual tick positions using \c{linspace}
+    - Displaying binned image data (256×256) using \l{ColorMesh}
+    - Setting viewRect to match bin dimensions for direct coordinate mapping
+    - Converting bin coordinates to actual values in tick labels
     - Creating custom tick delegates with formatted text
     - Applying the custom formatting to both axes consistently
+
+    This approach is useful when working with large numerical ranges in binned or pixelated data, such as 
+    sensor readings, histograms, or scientific imaging data.
 
     \quotefile examples/CustomLinearScale.qml
 */
