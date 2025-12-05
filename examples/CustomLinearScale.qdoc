@@ -1,0 +1,23 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Refeyn Ltd and other QuickGraphLib contributors
+// SPDX-License-Identifier: MIT
+
+/*!
+    \title Custom Linear Scale
+    \ingroup quickgraphlibdemos
+    \brief Demonstrates custom tick formatting for large numbers.
+    \example customlinearscale
+
+    \image examples/CustomLinearScale.png
+
+    This example demonstrates how to create custom tick labels for axes when working with large numbers. 
+    By using a custom tickDelegate for both X and Y axes, tick values are formatted to display in millions 
+    with an "M" suffix (e.g., "20M" instead of "20000000"), making the graph much more readable.
+
+    The example shows:
+    - Setting manual tick positions using \c{linspace}
+    - Creating custom tick delegates with formatted text
+    - Applying the custom formatting to both axes consistently
+
+    \quotefile examples/CustomLinearScale.qml
+*/
+
