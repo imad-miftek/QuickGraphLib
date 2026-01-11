@@ -3,6 +3,7 @@
 
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Shapes as QQS
 import QuickGraphLib as QuickGraphLib
 import QuickGraphLib.GraphItems as QGLGraphItems
@@ -11,21 +12,67 @@ import QuickGraphLib.PreFabs as QGLPreFabs
 QGLPreFabs.XYAxes {
     id: axes
 
-    title: "Interactive Rectangle"
+    title: "Interactive Shapes"
     viewRect: Qt.rect(-5, -5, 10, 10)
     xLabel: "X Position"
     yLabel: "Y Position"
 
+    // Model to hold all rectangles
+    ListModel {
+        id: rectanglesModel
+    }
+
+    // Helper function to get selected rectangle index
+    function getSelectedIndex() {
+        for (let i = 0; i < rectanglesModel.count; i++) {
+            if (rectanglesModel.get(i).selected) {
+                return i
+            }
+        }
+        return -1
+    }
+
     // Interactive Rectangle Component
-    Item {
-        id: interactiveRect
+    Component {
+        id: rectangleComponent
 
-        property bool selected: false
-        property rect dataRect: Qt.rect(-2, 1, 3, 2)  // x, y, width, height in data coordinates
-        property real rotation: 0  // rotation angle in degrees
+        Item {
+            id: interactiveRect
 
-        // Helper function to get rotated corner position in global coordinates
-        function getRotatedCorner(localX, localY) {
+            required property int index
+            required property real dataX
+            required property real dataY
+            required property real dataWidth
+            required property real dataHeight
+            required property real rotation
+            required property bool selected
+
+            property rect dataRect: Qt.rect(dataX, dataY, dataWidth, dataHeight)
+
+            // Sync changes back to model
+            onDataRectChanged: {
+                rectanglesModel.setProperty(index, "dataX", dataRect.x)
+                rectanglesModel.setProperty(index, "dataY", dataRect.y)
+                rectanglesModel.setProperty(index, "dataWidth", dataRect.width)
+                rectanglesModel.setProperty(index, "dataHeight", dataRect.height)
+            }
+            onRotationChanged: {
+                rectanglesModel.setProperty(index, "rotation", rotation)
+            }
+            onSelectedChanged: {
+                // Deselect all other rectangles
+                if (selected) {
+                    for (let i = 0; i < rectanglesModel.count; i++) {
+                        if (i !== index) {
+                            rectanglesModel.setProperty(i, "selected", false)
+                        }
+                    }
+                }
+                rectanglesModel.setProperty(index, "selected", selected)
+            }
+
+            // Helper function to get rotated corner position in global coordinates
+            function getRotatedCorner(localX, localY) {
             // Map from rectContainer's local coordinates to global coordinates
             // This automatically applies the rotation
             return rectContainer.mapToItem(null, localX, localY);
@@ -306,15 +353,86 @@ QGLPreFabs.XYAxes {
             transformOrigin: Item.Top
         }
 
+        }
     }
 
-    // Click outside to deselect
+    // Repeater to create rectangles from model
+    Repeater {
+        model: rectanglesModel
+        delegate: rectangleComponent
+    }
+
+    // Context menu MouseArea
     MouseArea {
+        id: contextMenuArea
         anchors.fill: parent
-        z: -1
+        z: -2
+        acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+        property point lastClickPos: Qt.point(0, 0)
+
         onPressed: mouse => {
-            // Deselect when clicking outside the rectangle
-            interactiveRect.selected = false;
+            if (mouse.button === Qt.LeftButton) {
+                // Deselect all rectangles when clicking on background
+                for (let i = 0; i < rectanglesModel.count; i++) {
+                    rectanglesModel.setProperty(i, "selected", false)
+                }
+            }
+        }
+
+        onPressAndHold: mouse => {
+            lastClickPos = Qt.point(mouse.x, mouse.y)
+            contextMenu.popup()
+        }
+
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton) {
+                lastClickPos = Qt.point(mouse.x, mouse.y)
+                contextMenu.popup()
+            }
+        }
+    }
+
+    // Context menu
+    Menu {
+        id: contextMenu
+
+        MenuItem {
+            text: "Add Rectangle"
+            onTriggered: {
+                // Get the mouse position in data coordinates
+                let dataPos = axes.dataTransform.inverted().map(contextMenuArea.lastClickPos)
+
+                // Add a new 2x2 rectangle centered at clicked position
+                rectanglesModel.append({
+                    "dataX": dataPos.x - 1,
+                    "dataY": dataPos.y - 1,
+                    "dataWidth": 2,
+                    "dataHeight": 2,
+                    "rotation": 0,
+                    "selected": true
+                })
+
+                // Deselect all other rectangles
+                for (let i = 0; i < rectanglesModel.count - 1; i++) {
+                    rectanglesModel.setProperty(i, "selected", false)
+                }
+            }
+        }
+
+        MenuSeparator {
+            visible: axes.getSelectedIndex() >= 0
+        }
+
+        MenuItem {
+            text: "Delete Rectangle"
+            visible: axes.getSelectedIndex() >= 0
+            onTriggered: {
+                let selectedIndex = axes.getSelectedIndex()
+                if (selectedIndex >= 0) {
+                    rectanglesModel.remove(selectedIndex)
+                }
+            }
         }
     }
 
@@ -323,7 +441,7 @@ QGLPreFabs.XYAxes {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.margins: 10
-        text: "• Click rectangle to select\n• Drag to move\n• Drag corners to resize\n• Drag orange handle to rotate\n• Click outside to deselect"
+        text: "• Right-click: Add/Delete rectangle\n• Click rectangle to select\n• Drag to move\n• Drag corners to resize\n• Drag circle to rotate\n• Click outside to deselect"
         color: "#333333"
         font.pixelSize: 12
 
