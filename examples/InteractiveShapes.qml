@@ -48,8 +48,8 @@ QGLPreFabs.XYAxes {
             Rectangle {
                 id: visualRect
                 anchors.fill: parent
-                color: interactiveRect.selected ? "#4400ff00" : "#2200ff00"
-                border.color: interactiveRect.selected ? "blue" : "#666666"
+                color: "transparent"
+                border.color: "black"
                 border.width: interactiveRect.selected ? 2 : 1.5
                 antialiasing: true
             }
@@ -85,22 +85,6 @@ QGLPreFabs.XYAxes {
             }
         }
 
-        // Click outside to deselect
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onPressed: mouse => {
-                // Check if click is outside the rectangle
-                let clickPoint = axes.dataTransform.inverted().map(Qt.point(mouse.x, mouse.y));
-                let rectBounds = interactiveRect.dataRect;
-
-                if (clickPoint.x < rectBounds.x || clickPoint.x > rectBounds.x + rectBounds.width || clickPoint.y < rectBounds.y || clickPoint.y > rectBounds.y + rectBounds.height) {
-                    interactiveRect.selected = false;
-                }
-                mouse.accepted = false;
-            }
-        }
-
         // Resize handles (only visible when selected)
         Repeater {
             model: interactiveRect.selected ? 4 : 0
@@ -127,10 +111,10 @@ QGLPreFabs.XYAxes {
                 }
 
                 // Map to interactiveRect coordinates (automatically accounts for rotation)
-                // Force binding update by explicitly depending on rectContainer position
+                // Force binding update by explicitly depending on rectContainer position and rotation
                 property point rotatedCorner: {
-                    // Explicitly reference rectContainer.x and y to force binding updates
-                    let _ = rectContainer.x + rectContainer.y;
+                    // Explicitly reference rectContainer.x, y, and rotation to force binding updates
+                    let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
                     return rectContainer.mapToItem(interactiveRect, localCorner.x, localCorner.y);
                 }
 
@@ -241,19 +225,19 @@ QGLPreFabs.XYAxes {
         Rectangle {
             id: rotationHandle
             visible: interactiveRect.selected
-            width: 12
-            height: 12
-            radius: 6
-            color: rotationMouseArea.containsMouse || rotationMouseArea.pressed ? "orange" : "white"
-            border.color: "orange"
-            border.width: 2
+            width: 8
+            height: 8
+            radius: 4
+            color: rotationMouseArea.containsMouse || rotationMouseArea.pressed ? "#ffcc00" : "yellow"
+            border.color: "black"
+            border.width: 1
             z: 100
 
             property real handleDistance: 30
             // Get top-center in interactiveRect coordinates
-            // Force binding update by explicitly depending on rectContainer position
+            // Force binding update by explicitly depending on rectContainer position and rotation
             property point topCenter: {
-                let _ = rectContainer.x + rectContainer.y;
+                let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
                 return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
             }
             property real perpendicularAngle: interactiveRect.rotation - 90
@@ -304,14 +288,15 @@ QGLPreFabs.XYAxes {
         // Connection line from rectangle to rotation handle
         Rectangle {
             visible: interactiveRect.selected
-            width: 2
+            width: 1
             height: rotationHandle.handleDistance - rotationHandle.radius
-            color: "orange"
+            color: "black"
+            antialiasing: true
             z: 99
 
-            // Force binding update by explicitly depending on rectContainer position
+            // Force binding update by explicitly depending on rectContainer position and rotation
             property point topCenter: {
-                let _ = rectContainer.x + rectContainer.y;
+                let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
                 return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
             }
 
@@ -321,31 +306,15 @@ QGLPreFabs.XYAxes {
             transformOrigin: Item.Top
         }
 
-        // Selection indicator text
-        Text {
-            // Force binding update by explicitly depending on rectContainer position
-            property point center: {
-                let _ = rectContainer.x + rectContainer.y;
-                return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, rectContainer.height / 2);
-            }
+    }
 
-            visible: interactiveRect.selected
-            text: "Selected\n" + "x: " + interactiveRect.dataRect.x.toFixed(2) + "\n" + "y: " + interactiveRect.dataRect.y.toFixed(2) + "\n" + "w: " + interactiveRect.dataRect.width.toFixed(2) + "\n" + "h: " + interactiveRect.dataRect.height.toFixed(2) + "\n" + "rot: " + interactiveRect.rotation.toFixed(1) + "°"
-            color: "#0066ff"
-            font.pixelSize: 12
-            font.bold: true
-            x: center.x - width / 2
-            y: center.y - height / 2
-            horizontalAlignment: Text.AlignHCenter
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: -4
-                color: "white"
-                opacity: 0.8
-                radius: 4
-                z: -1
-            }
+    // Click outside to deselect
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        onPressed: mouse => {
+            // Deselect when clicking outside the rectangle
+            interactiveRect.selected = false;
         }
     }
 
