@@ -50,7 +50,8 @@ QGLPreFabs.XYAxes {
                 anchors.fill: parent
                 color: interactiveRect.selected ? "#4400ff00" : "#2200ff00"
                 border.color: interactiveRect.selected ? "blue" : "#666666"
-                border.width: interactiveRect.selected ? 3 : 2
+                border.width: interactiveRect.selected ? 2 : 1.5
+                antialiasing: true
             }
 
             // Mouse area INSIDE the rotated container
@@ -106,12 +107,12 @@ QGLPreFabs.XYAxes {
 
             Rectangle {
                 required property int index
-                width: 12
-                height: 12
-                radius: 6
-                color: handleMouseArea.containsMouse || handleMouseArea.pressed ? "#0066ff" : "white"
-                border.color: "#0066ff"
-                border.width: 2
+                width: 8
+                height: 8
+                radius: 0
+                color: handleMouseArea.containsMouse || handleMouseArea.pressed ? "#ffcc00" : "yellow"
+                border.color: "black"
+                border.width: 1
                 z: 100
 
                 // 0=TL, 1=TR, 2=BR, 3=BL - positions in rectContainer's local coordinates
@@ -133,7 +134,7 @@ QGLPreFabs.XYAxes {
                     return rectContainer.mapToItem(interactiveRect, localCorner.x, localCorner.y);
                 }
 
-                // Position in interactiveRect coordinates
+                // Position in interactiveRect coordinates - center the handle on the vertex
                 x: rotatedCorner.x - width / 2
                 y: rotatedCorner.y - height / 2
 
@@ -147,55 +148,86 @@ QGLPreFabs.XYAxes {
                     }
                     hoverEnabled: true
 
-                    property point startDragPoint: Qt.point(0, 0)
+                    property point startDragDataPoint: Qt.point(0, 0)
                     property rect startDragRect: Qt.rect(0, 0, 0, 0)
                     property real startRotation: 0
+                    property point startCornerData: Qt.point(0, 0)
 
                     onPressed: mouse => {
-                        // Convert to axes coordinates for data transform
-                        let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
-                        startDragPoint = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
+                        // Store the initial data rectangle
                         startDragRect = interactiveRect.dataRect;
                         startRotation = interactiveRect.rotation;
+
+                        // Store the initial corner position in data space
+                        if (index === 0) {
+                            startCornerData = Qt.point(startDragRect.x, startDragRect.y + startDragRect.height);
+                        } else if (index === 1) {
+                            startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y + startDragRect.height);
+                        } else if (index === 2) {
+                            startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y);
+                        } else {
+                            startCornerData = Qt.point(startDragRect.x, startDragRect.y);
+                        }
+
+                        // Store the initial mouse position in data coordinates
+                        let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
+                        let posInAxes = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
+                        startDragDataPoint = axes.dataTransform.inverted().map(posInAxes);
                     }
 
                     onPositionChanged: mouse => {
                         if (pressed) {
-                            // Convert to axes coordinates for data transform
+                            // Get current mouse position in data coordinates
                             let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
                             let currentPoint = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
-
-                            // Convert to data coordinates
-                            let startDataPoint = axes.dataTransform.inverted().map(startDragPoint);
                             let currentDataPoint = axes.dataTransform.inverted().map(currentPoint);
-                            let dataDelta = Qt.point(currentDataPoint.x - startDataPoint.x, currentDataPoint.y - startDataPoint.y);
 
-                            // Simple resize without rotation (for now)
-                            let newRect = startDragRect;
+                            // Calculate the delta from initial click
+                            let deltaX = currentDataPoint.x - startDragDataPoint.x;
+                            let deltaY = currentDataPoint.y - startDragDataPoint.y;
+
+                            // New corner position = original corner + delta
+                            let newCornerX = startCornerData.x + deltaX;
+                            let newCornerY = startCornerData.y + deltaY;
+
+                            // Resize with opposite corner as anchor point
+                            let newRect = Qt.rect(0, 0, 0, 0);
+
                             if (index === 0) {
-                                // Top-left
-                                newRect.x = startDragRect.x + dataDelta.x;
-                                newRect.y = startDragRect.y;
-                                newRect.width = startDragRect.width - dataDelta.x;
-                                newRect.height = startDragRect.height + dataDelta.y;
+                                // Top-left: opposite is bottom-right
+                                let anchorX = startDragRect.x + startDragRect.width;
+                                let anchorY = startDragRect.y;
+                                newRect.x = Math.min(newCornerX, anchorX);
+                                newRect.y = Math.min(newCornerY, anchorY);
+                                newRect.width = Math.abs(anchorX - newCornerX);
+                                newRect.height = Math.abs(newCornerY - anchorY);
                             } else if (index === 1) {
-                                // Top-right
-                                newRect.width = startDragRect.width + dataDelta.x;
-                                newRect.height = startDragRect.height + dataDelta.y;
+                                // Top-right: opposite is bottom-left
+                                let anchorX = startDragRect.x;
+                                let anchorY = startDragRect.y;
+                                newRect.x = Math.min(newCornerX, anchorX);
+                                newRect.y = Math.min(newCornerY, anchorY);
+                                newRect.width = Math.abs(newCornerX - anchorX);
+                                newRect.height = Math.abs(newCornerY - anchorY);
                             } else if (index === 2) {
-                                // Bottom-right
-                                newRect.width = startDragRect.width + dataDelta.x;
-                                newRect.height = startDragRect.height - dataDelta.y;
-                                newRect.y = startDragRect.y + dataDelta.y;
+                                // Bottom-right: opposite is top-left
+                                let anchorX = startDragRect.x;
+                                let anchorY = startDragRect.y + startDragRect.height;
+                                newRect.x = Math.min(newCornerX, anchorX);
+                                newRect.y = Math.min(newCornerY, anchorY);
+                                newRect.width = Math.abs(newCornerX - anchorX);
+                                newRect.height = Math.abs(anchorY - newCornerY);
                             } else {
-                                // Bottom-left
-                                newRect.x = startDragRect.x + dataDelta.x;
-                                newRect.width = startDragRect.width - dataDelta.x;
-                                newRect.height = startDragRect.height - dataDelta.y;
-                                newRect.y = startDragRect.y + dataDelta.y;
+                                // Bottom-left: opposite is top-right
+                                let anchorX = startDragRect.x + startDragRect.width;
+                                let anchorY = startDragRect.y + startDragRect.height;
+                                newRect.x = Math.min(newCornerX, anchorX);
+                                newRect.y = Math.min(newCornerY, anchorY);
+                                newRect.width = Math.abs(anchorX - newCornerX);
+                                newRect.height = Math.abs(anchorY - newCornerY);
                             }
 
-                            // Prevent negative dimensions
+                            // Prevent too-small dimensions
                             if (newRect.width > 0.1 && newRect.height > 0.1) {
                                 interactiveRect.dataRect = newRect;
                             }
