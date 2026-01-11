@@ -1,0 +1,50 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Refeyn Ltd and other QuickGraphLib contributors
+// SPDX-License-Identifier: MIT
+
+/*!
+\title Interactive Shapes
+\ingroup quickgraphlibdemos
+\brief Demonstrates selectable, draggable, and resizable shapes.
+\example interactiveshapes
+
+\image examples/InteractiveShapes.svg
+
+This example demonstrates how to create interactive shapes that can be selected,
+moved, and resized using mouse interactions.
+
+\section1 Interactive Features
+
+The rectangle in this example supports:
+
+\list
+\li \b{Selection}: Click the rectangle to select it (highlights with blue border)
+\li \b{Deselection}: Click outside the rectangle to deselect it
+\li \b{Moving}: Drag the selected rectangle to move it around the graph
+\li \b{Resizing}: Drag the corner handles to resize the rectangle
+\endlist
+
+\section2 Implementation Details
+
+The interactive rectangle uses several QML components:
+
+\list
+\li \b{ShapePath}: Renders the rectangle with data coordinates
+\li \b{MouseArea}: Handles selection and dragging within the rectangle bounds
+\li \b{Repeater with handles}: Creates resize handles at each corner when selected
+\li \b{Coordinate transforms}: Uses \c{dataTransform.map()} and \c{dataTransform.inverted().map()}
+    to convert between pixel and data coordinates
+\endlist
+
+\section2 Coordinate Transformation
+
+The key to making shapes interactive is properly transforming between:
+\list
+\li \b{Data coordinates}: The logical coordinate system of your graph
+\li \b{Pixel coordinates}: The screen position where mouse events occur
+\endlist
+
+Use \c{axes.dataTransform.map()} to convert from data to pixel coordinates,
+and \c{axes.dataTransform.inverted().map()} to convert from pixel to data coordinates.
+
+\quotefile examples/InteractiveShapes.qml
+*/
