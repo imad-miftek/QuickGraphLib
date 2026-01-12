@@ -26,10 +26,10 @@ QGLPreFabs.XYAxes {
     function getSelectedIndex() {
         for (let i = 0; i < shapesModel.count; i++) {
             if (shapesModel.get(i).selected) {
-                return i
+                return i;
             }
         }
-        return -1
+        return -1;
     }
 
     // Interactive Rectangle Component
@@ -51,308 +51,313 @@ QGLPreFabs.XYAxes {
 
             // Sync changes back to model
             onDataRectChanged: {
-                shapesModel.setProperty(index, "dataX", dataRect.x)
-                shapesModel.setProperty(index, "dataY", dataRect.y)
-                shapesModel.setProperty(index, "dataWidth", dataRect.width)
-                shapesModel.setProperty(index, "dataHeight", dataRect.height)
+                shapesModel.setProperty(index, "dataX", dataRect.x);
+                shapesModel.setProperty(index, "dataY", dataRect.y);
+                shapesModel.setProperty(index, "dataWidth", dataRect.width);
+                shapesModel.setProperty(index, "dataHeight", dataRect.height);
             }
             onRotationChanged: {
-                shapesModel.setProperty(index, "rotation", rotation)
+                shapesModel.setProperty(index, "rotation", rotation);
             }
             onSelectedChanged: {
                 // Deselect all other shapes
                 if (selected) {
                     for (let i = 0; i < shapesModel.count; i++) {
                         if (i !== index) {
-                            shapesModel.setProperty(i, "selected", false)
+                            shapesModel.setProperty(i, "selected", false);
                         }
                     }
                 }
-                shapesModel.setProperty(index, "selected", selected)
+                shapesModel.setProperty(index, "selected", selected);
             }
 
             // Helper function to get rotated corner position in global coordinates
             function getRotatedCorner(localX, localY) {
-            // Map from rectContainer's local coordinates to global coordinates
-            // This automatically applies the rotation
-            return rectContainer.mapToItem(null, localX, localY);
-        }
-
-        // Rectangle shape (rotatable container)
-        Item {
-            id: rectContainer
-            property point topLeft: axes.dataTransform.map(Qt.point(interactiveRect.dataRect.x, interactiveRect.dataRect.y + interactiveRect.dataRect.height))
-            property point bottomRight: axes.dataTransform.map(Qt.point(interactiveRect.dataRect.x + interactiveRect.dataRect.width, interactiveRect.dataRect.y))
-            property point center: Qt.point((topLeft.x + bottomRight.x) / 2, (topLeft.y + bottomRight.y) / 2)
-
-            x: center.x - width / 2  // Position top-left, not center
-            y: center.y - height / 2
-            width: Math.abs(bottomRight.x - topLeft.x)
-            height: Math.abs(bottomRight.y - topLeft.y)
-            rotation: interactiveRect.rotation
-            transformOrigin: Item.Center  // Rotate around center
-
-            Rectangle {
-                id: visualRect
-                anchors.fill: parent
-                color: "transparent"
-                border.color: "black"
-                border.width: interactiveRect.selected ? 2 : 1.5
-                antialiasing: true
+                // Map from rectContainer's local coordinates to global coordinates
+                // This automatically applies the rotation
+                return rectContainer.mapToItem(null, localX, localY);
             }
 
-            // Mouse area INSIDE the rotated container
-            MouseArea {
-                id: mainMouseArea
-                anchors.fill: parent
-                property point startDragDataPoint: Qt.point(0, 0)
-                property rect startDragRect: Qt.rect(0, 0, 0, 0)
+            // Rectangle shape (rotatable container)
+            Item {
+                id: rectContainer
+                property point topLeft: axes.dataTransform.map(Qt.point(interactiveRect.dataRect.x, interactiveRect.dataRect.y + interactiveRect.dataRect.height))
+                property point bottomRight: axes.dataTransform.map(Qt.point(interactiveRect.dataRect.x + interactiveRect.dataRect.width, interactiveRect.dataRect.y))
+                property point center: Qt.point((topLeft.x + bottomRight.x) / 2, (topLeft.y + bottomRight.y) / 2)
 
-                cursorShape: interactiveRect.selected ? Qt.SizeAllCursor : Qt.PointingHandCursor
-                hoverEnabled: true
+                x: center.x - width / 2  // Position top-left, not center
+                y: center.y - height / 2
+                width: Math.abs(bottomRight.x - topLeft.x)
+                height: Math.abs(bottomRight.y - topLeft.y)
+                rotation: interactiveRect.rotation
+                transformOrigin: Item.Center  // Rotate around center
 
-                onPressed: mouse => {
-                    interactiveRect.selected = true;
-                    // Convert mouse position to screen coordinates, then to data coordinates
-                    let screenPos = mapToItem(null, mouse.x, mouse.y);
-                    startDragDataPoint = axes.dataTransform.inverted().map(screenPos);
-                    startDragRect = interactiveRect.dataRect;
+                Rectangle {
+                    id: visualRect
+                    anchors.fill: parent
+                    color: "transparent"
+                    border.color: "black"
+                    border.width: interactiveRect.selected ? 2 : 1.5
+                    antialiasing: true
                 }
 
-                onPositionChanged: mouse => {
-                    if (pressed && interactiveRect.selected) {
-                        let screenPos = mapToItem(null, mouse.x, mouse.y);
-                        let currentDataPoint = axes.dataTransform.inverted().map(screenPos);
-                        let dx = currentDataPoint.x - startDragDataPoint.x;
-                        let dy = currentDataPoint.y - startDragDataPoint.y;
+                // Mouse area INSIDE the rotated container
+                MouseArea {
+                    id: mainMouseArea
+                    anchors.fill: parent
+                    property point startDragDataPoint: Qt.point(0, 0)
+                    property rect startDragRect: Qt.rect(0, 0, 0, 0)
 
-                        interactiveRect.dataRect = Qt.rect(startDragRect.x + dx, startDragRect.y + dy, startDragRect.width, startDragRect.height);
+                    cursorShape: interactiveRect.selected ? Qt.SizeAllCursor : Qt.PointingHandCursor
+                    hoverEnabled: true
+
+                    onPressed: mouse => {
+                        if (mouse.button === Qt.LeftButton) {
+                            // Update model instead of property directly to preserve binding
+                            shapesModel.setProperty(index, "selected", true);
+                            // Convert mouse position to screen coordinates, then to data coordinates
+                            let screenPos = mapToItem(null, mouse.x, mouse.y);
+                            startDragDataPoint = axes.dataTransform.inverted().map(screenPos);
+                            startDragRect = interactiveRect.dataRect;
+                            mouse.accepted = true; // Prevent left-click propagation to background
+                        } else {
+                            mouse.accepted = false; // Allow right-clicks to propagate for context menu
+                        }
+                    }
+
+                    onPositionChanged: mouse => {
+                        if (pressed && interactiveRect.selected) {
+                            let screenPos = mapToItem(null, mouse.x, mouse.y);
+                            let currentDataPoint = axes.dataTransform.inverted().map(screenPos);
+                            let dx = currentDataPoint.x - startDragDataPoint.x;
+                            let dy = currentDataPoint.y - startDragDataPoint.y;
+
+                            interactiveRect.dataRect = Qt.rect(startDragRect.x + dx, startDragRect.y + dy, startDragRect.width, startDragRect.height);
+                        }
                     }
                 }
             }
-        }
 
-        // Resize handles (only visible when selected)
-        Repeater {
-            model: interactiveRect.selected ? 4 : 0
+            // Resize handles (only visible when selected)
+            Repeater {
+                model: interactiveRect.selected ? 4 : 0
 
+                Rectangle {
+                    required property int index
+                    width: 8
+                    height: 8
+                    radius: 0
+                    color: handleMouseArea.containsMouse || handleMouseArea.pressed ? "#ffcc00" : "yellow"
+                    border.color: "black"
+                    border.width: 1
+                    z: 100
+
+                    // 0=TL, 1=TR, 2=BR, 3=BL - positions in rectContainer's local coordinates
+                    property point localCorner: {
+                        if (index === 0)
+                            return Qt.point(0, 0);
+                        if (index === 1)
+                            return Qt.point(rectContainer.width, 0);
+                        if (index === 2)
+                            return Qt.point(rectContainer.width, rectContainer.height);
+                        return Qt.point(0, rectContainer.height);
+                    }
+
+                    // Map to interactiveRect coordinates (automatically accounts for rotation)
+                    // Force binding update by explicitly depending on rectContainer position and rotation
+                    property point rotatedCorner: {
+                        // Explicitly reference rectContainer.x, y, and rotation to force binding updates
+                        let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
+                        return rectContainer.mapToItem(interactiveRect, localCorner.x, localCorner.y);
+                    }
+
+                    // Position in interactiveRect coordinates - center the handle on the vertex
+                    x: rotatedCorner.x - width / 2
+                    y: rotatedCorner.y - height / 2
+
+                    MouseArea {
+                        id: handleMouseArea
+                        anchors.fill: parent
+                        cursorShape: {
+                            if (index === 0 || index === 2)
+                                return Qt.SizeFDiagCursor;
+                            return Qt.SizeBDiagCursor;
+                        }
+                        hoverEnabled: true
+
+                        property point startDragDataPoint: Qt.point(0, 0)
+                        property rect startDragRect: Qt.rect(0, 0, 0, 0)
+                        property real startRotation: 0
+                        property point startCornerData: Qt.point(0, 0)
+
+                        onPressed: mouse => {
+                            // Store the initial data rectangle
+                            startDragRect = interactiveRect.dataRect;
+                            startRotation = interactiveRect.rotation;
+
+                            // Store the initial corner position in data space
+                            if (index === 0) {
+                                startCornerData = Qt.point(startDragRect.x, startDragRect.y + startDragRect.height);
+                            } else if (index === 1) {
+                                startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y + startDragRect.height);
+                            } else if (index === 2) {
+                                startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y);
+                            } else {
+                                startCornerData = Qt.point(startDragRect.x, startDragRect.y);
+                            }
+
+                            // Store the initial mouse position in data coordinates
+                            let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
+                            let posInAxes = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
+                            startDragDataPoint = axes.dataTransform.inverted().map(posInAxes);
+                        }
+
+                        onPositionChanged: mouse => {
+                            if (pressed) {
+                                // Get current mouse position in data coordinates
+                                let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
+                                let currentPoint = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
+                                let currentDataPoint = axes.dataTransform.inverted().map(currentPoint);
+
+                                // Calculate the delta from initial click
+                                let deltaX = currentDataPoint.x - startDragDataPoint.x;
+                                let deltaY = currentDataPoint.y - startDragDataPoint.y;
+
+                                // New corner position = original corner + delta
+                                let newCornerX = startCornerData.x + deltaX;
+                                let newCornerY = startCornerData.y + deltaY;
+
+                                // Resize with opposite corner as anchor point
+                                let newRect = Qt.rect(0, 0, 0, 0);
+
+                                if (index === 0) {
+                                    // Top-left: opposite is bottom-right
+                                    let anchorX = startDragRect.x + startDragRect.width;
+                                    let anchorY = startDragRect.y;
+                                    newRect.x = Math.min(newCornerX, anchorX);
+                                    newRect.y = Math.min(newCornerY, anchorY);
+                                    newRect.width = Math.abs(anchorX - newCornerX);
+                                    newRect.height = Math.abs(newCornerY - anchorY);
+                                } else if (index === 1) {
+                                    // Top-right: opposite is bottom-left
+                                    let anchorX = startDragRect.x;
+                                    let anchorY = startDragRect.y;
+                                    newRect.x = Math.min(newCornerX, anchorX);
+                                    newRect.y = Math.min(newCornerY, anchorY);
+                                    newRect.width = Math.abs(newCornerX - anchorX);
+                                    newRect.height = Math.abs(newCornerY - anchorY);
+                                } else if (index === 2) {
+                                    // Bottom-right: opposite is top-left
+                                    let anchorX = startDragRect.x;
+                                    let anchorY = startDragRect.y + startDragRect.height;
+                                    newRect.x = Math.min(newCornerX, anchorX);
+                                    newRect.y = Math.min(newCornerY, anchorY);
+                                    newRect.width = Math.abs(newCornerX - anchorX);
+                                    newRect.height = Math.abs(anchorY - newCornerY);
+                                } else {
+                                    // Bottom-left: opposite is top-right
+                                    let anchorX = startDragRect.x + startDragRect.width;
+                                    let anchorY = startDragRect.y + startDragRect.height;
+                                    newRect.x = Math.min(newCornerX, anchorX);
+                                    newRect.y = Math.min(newCornerY, anchorY);
+                                    newRect.width = Math.abs(anchorX - newCornerX);
+                                    newRect.height = Math.abs(anchorY - newCornerY);
+                                }
+
+                                // Prevent too-small dimensions
+                                if (newRect.width > 0.1 && newRect.height > 0.1) {
+                                    interactiveRect.dataRect = newRect;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Rotation handle (only visible when selected)
             Rectangle {
-                required property int index
+                id: rotationHandle
+                visible: interactiveRect.selected
                 width: 8
                 height: 8
-                radius: 0
-                color: handleMouseArea.containsMouse || handleMouseArea.pressed ? "#ffcc00" : "yellow"
+                radius: 4
+                color: rotationMouseArea.containsMouse || rotationMouseArea.pressed ? "#ffcc00" : "yellow"
                 border.color: "black"
                 border.width: 1
                 z: 100
 
-                // 0=TL, 1=TR, 2=BR, 3=BL - positions in rectContainer's local coordinates
-                property point localCorner: {
-                    if (index === 0)
-                        return Qt.point(0, 0);
-                    if (index === 1)
-                        return Qt.point(rectContainer.width, 0);
-                    if (index === 2)
-                        return Qt.point(rectContainer.width, rectContainer.height);
-                    return Qt.point(0, rectContainer.height);
-                }
-
-                // Map to interactiveRect coordinates (automatically accounts for rotation)
+                property real handleDistance: 30
+                // Get top-center in interactiveRect coordinates
                 // Force binding update by explicitly depending on rectContainer position and rotation
-                property point rotatedCorner: {
-                    // Explicitly reference rectContainer.x, y, and rotation to force binding updates
+                property point topCenter: {
                     let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
-                    return rectContainer.mapToItem(interactiveRect, localCorner.x, localCorner.y);
+                    return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
                 }
+                property real perpendicularAngle: interactiveRect.rotation - 90
+                property real angleRad: perpendicularAngle * Math.PI / 180
 
-                // Position in interactiveRect coordinates - center the handle on the vertex
-                x: rotatedCorner.x - width / 2
-                y: rotatedCorner.y - height / 2
+                x: topCenter.x + handleDistance * Math.cos(angleRad) - width / 2
+                y: topCenter.y + handleDistance * Math.sin(angleRad) - height / 2
 
                 MouseArea {
-                    id: handleMouseArea
+                    id: rotationMouseArea
                     anchors.fill: parent
-                    cursorShape: {
-                        if (index === 0 || index === 2)
-                            return Qt.SizeFDiagCursor;
-                        return Qt.SizeBDiagCursor;
-                    }
+                    cursorShape: Qt.CrossCursor
                     hoverEnabled: true
 
-                    property point startDragDataPoint: Qt.point(0, 0)
-                    property rect startDragRect: Qt.rect(0, 0, 0, 0)
+                    property point startDragPoint: Qt.point(0, 0)
                     property real startRotation: 0
-                    property point startCornerData: Qt.point(0, 0)
 
                     onPressed: mouse => {
-                        // Store the initial data rectangle
-                        startDragRect = interactiveRect.dataRect;
+                        // Convert to interactiveRect coordinates
+                        startDragPoint = mapToItem(interactiveRect, mouse.x, mouse.y);
                         startRotation = interactiveRect.rotation;
-
-                        // Store the initial corner position in data space
-                        if (index === 0) {
-                            startCornerData = Qt.point(startDragRect.x, startDragRect.y + startDragRect.height);
-                        } else if (index === 1) {
-                            startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y + startDragRect.height);
-                        } else if (index === 2) {
-                            startCornerData = Qt.point(startDragRect.x + startDragRect.width, startDragRect.y);
-                        } else {
-                            startCornerData = Qt.point(startDragRect.x, startDragRect.y);
-                        }
-
-                        // Store the initial mouse position in data coordinates
-                        let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
-                        let posInAxes = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
-                        startDragDataPoint = axes.dataTransform.inverted().map(posInAxes);
                     }
 
                     onPositionChanged: mouse => {
                         if (pressed) {
-                            // Get current mouse position in data coordinates
-                            let posInInteractiveRect = mapToItem(interactiveRect, mouse.x, mouse.y);
-                            let currentPoint = interactiveRect.mapToItem(axes, posInInteractiveRect.x, posInInteractiveRect.y);
-                            let currentDataPoint = axes.dataTransform.inverted().map(currentPoint);
+                            // Convert to interactiveRect coordinates
+                            let currentPoint = mapToItem(interactiveRect, mouse.x, mouse.y);
+                            // Get center in interactiveRect coordinates
+                            let center = rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, rectContainer.height / 2);
 
-                            // Calculate the delta from initial click
-                            let deltaX = currentDataPoint.x - startDragDataPoint.x;
-                            let deltaY = currentDataPoint.y - startDragDataPoint.y;
+                            // Calculate angle from center to current point
+                            let dx = currentPoint.x - center.x;
+                            let dy = currentPoint.y - center.y;
+                            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
 
-                            // New corner position = original corner + delta
-                            let newCornerX = startCornerData.x + deltaX;
-                            let newCornerY = startCornerData.y + deltaY;
+                            // Calculate angle from center to start point
+                            let startDx = startDragPoint.x - center.x;
+                            let startDy = startDragPoint.y - center.y;
+                            let startAngle = Math.atan2(startDy, startDx) * 180 / Math.PI;
 
-                            // Resize with opposite corner as anchor point
-                            let newRect = Qt.rect(0, 0, 0, 0);
-
-                            if (index === 0) {
-                                // Top-left: opposite is bottom-right
-                                let anchorX = startDragRect.x + startDragRect.width;
-                                let anchorY = startDragRect.y;
-                                newRect.x = Math.min(newCornerX, anchorX);
-                                newRect.y = Math.min(newCornerY, anchorY);
-                                newRect.width = Math.abs(anchorX - newCornerX);
-                                newRect.height = Math.abs(newCornerY - anchorY);
-                            } else if (index === 1) {
-                                // Top-right: opposite is bottom-left
-                                let anchorX = startDragRect.x;
-                                let anchorY = startDragRect.y;
-                                newRect.x = Math.min(newCornerX, anchorX);
-                                newRect.y = Math.min(newCornerY, anchorY);
-                                newRect.width = Math.abs(newCornerX - anchorX);
-                                newRect.height = Math.abs(newCornerY - anchorY);
-                            } else if (index === 2) {
-                                // Bottom-right: opposite is top-left
-                                let anchorX = startDragRect.x;
-                                let anchorY = startDragRect.y + startDragRect.height;
-                                newRect.x = Math.min(newCornerX, anchorX);
-                                newRect.y = Math.min(newCornerY, anchorY);
-                                newRect.width = Math.abs(newCornerX - anchorX);
-                                newRect.height = Math.abs(anchorY - newCornerY);
-                            } else {
-                                // Bottom-left: opposite is top-right
-                                let anchorX = startDragRect.x + startDragRect.width;
-                                let anchorY = startDragRect.y + startDragRect.height;
-                                newRect.x = Math.min(newCornerX, anchorX);
-                                newRect.y = Math.min(newCornerY, anchorY);
-                                newRect.width = Math.abs(anchorX - newCornerX);
-                                newRect.height = Math.abs(anchorY - newCornerY);
-                            }
-
-                            // Prevent too-small dimensions
-                            if (newRect.width > 0.1 && newRect.height > 0.1) {
-                                interactiveRect.dataRect = newRect;
-                            }
+                            // Update rotation
+                            interactiveRect.rotation = startRotation + (angle - startAngle);
                         }
                     }
                 }
             }
-        }
 
-        // Rotation handle (only visible when selected)
-        Rectangle {
-            id: rotationHandle
-            visible: interactiveRect.selected
-            width: 8
-            height: 8
-            radius: 4
-            color: rotationMouseArea.containsMouse || rotationMouseArea.pressed ? "#ffcc00" : "yellow"
-            border.color: "black"
-            border.width: 1
-            z: 100
+            // Connection line from rectangle to rotation handle
+            Rectangle {
+                visible: interactiveRect.selected
+                width: 1
+                height: rotationHandle.handleDistance - rotationHandle.radius
+                color: "black"
+                antialiasing: true
+                z: 99
 
-            property real handleDistance: 30
-            // Get top-center in interactiveRect coordinates
-            // Force binding update by explicitly depending on rectContainer position and rotation
-            property point topCenter: {
-                let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
-                return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
-            }
-            property real perpendicularAngle: interactiveRect.rotation - 90
-            property real angleRad: perpendicularAngle * Math.PI / 180
-
-            x: topCenter.x + handleDistance * Math.cos(angleRad) - width / 2
-            y: topCenter.y + handleDistance * Math.sin(angleRad) - height / 2
-
-            MouseArea {
-                id: rotationMouseArea
-                anchors.fill: parent
-                cursorShape: Qt.CrossCursor
-                hoverEnabled: true
-
-                property point startDragPoint: Qt.point(0, 0)
-                property real startRotation: 0
-
-                onPressed: mouse => {
-                    // Convert to interactiveRect coordinates
-                    startDragPoint = mapToItem(interactiveRect, mouse.x, mouse.y);
-                    startRotation = interactiveRect.rotation;
+                // Force binding update by explicitly depending on rectContainer position and rotation
+                property point topCenter: {
+                    let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
+                    return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
                 }
 
-                onPositionChanged: mouse => {
-                    if (pressed) {
-                        // Convert to interactiveRect coordinates
-                        let currentPoint = mapToItem(interactiveRect, mouse.x, mouse.y);
-                        // Get center in interactiveRect coordinates
-                        let center = rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, rectContainer.height / 2);
-
-                        // Calculate angle from center to current point
-                        let dx = currentPoint.x - center.x;
-                        let dy = currentPoint.y - center.y;
-                        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-                        // Calculate angle from center to start point
-                        let startDx = startDragPoint.x - center.x;
-                        let startDy = startDragPoint.y - center.y;
-                        let startAngle = Math.atan2(startDy, startDx) * 180 / Math.PI;
-
-                        // Update rotation
-                        interactiveRect.rotation = startRotation + (angle - startAngle);
-                    }
-                }
+                x: topCenter.x - width / 2
+                y: topCenter.y
+                rotation: interactiveRect.rotation - 180
+                transformOrigin: Item.Top
             }
-        }
-
-        // Connection line from rectangle to rotation handle
-        Rectangle {
-            visible: interactiveRect.selected
-            width: 1
-            height: rotationHandle.handleDistance - rotationHandle.radius
-            color: "black"
-            antialiasing: true
-            z: 99
-
-            // Force binding update by explicitly depending on rectContainer position and rotation
-            property point topCenter: {
-                let _ = rectContainer.x + rectContainer.y + interactiveRect.rotation;
-                return rectContainer.mapToItem(interactiveRect, rectContainer.width / 2, 0);
-            }
-
-            x: topCenter.x - width / 2
-            y: topCenter.y
-            rotation: interactiveRect.rotation - 180
-            transformOrigin: Item.Top
-        }
-
         }
     }
 
@@ -375,24 +380,24 @@ QGLPreFabs.XYAxes {
 
             // Sync changes back to model
             onDataRectChanged: {
-                shapesModel.setProperty(index, "dataX", dataRect.x)
-                shapesModel.setProperty(index, "dataY", dataRect.y)
-                shapesModel.setProperty(index, "dataWidth", dataRect.width)
-                shapesModel.setProperty(index, "dataHeight", dataRect.height)
+                shapesModel.setProperty(index, "dataX", dataRect.x);
+                shapesModel.setProperty(index, "dataY", dataRect.y);
+                shapesModel.setProperty(index, "dataWidth", dataRect.width);
+                shapesModel.setProperty(index, "dataHeight", dataRect.height);
             }
             onRotationChanged: {
-                shapesModel.setProperty(index, "rotation", rotation)
+                shapesModel.setProperty(index, "rotation", rotation);
             }
             onSelectedChanged: {
                 // Deselect all other shapes
                 if (selected) {
                     for (let i = 0; i < shapesModel.count; i++) {
                         if (i !== index) {
-                            shapesModel.setProperty(i, "selected", false)
+                            shapesModel.setProperty(i, "selected", false);
                         }
                     }
                 }
-                shapesModel.setProperty(index, "selected", selected)
+                shapesModel.setProperty(index, "selected", selected);
             }
 
             // Helper function to get rotated corner position in global coordinates
@@ -457,10 +462,16 @@ QGLPreFabs.XYAxes {
                     hoverEnabled: true
 
                     onPressed: mouse => {
-                        interactiveEllipse.selected = true;
-                        let screenPos = mapToItem(null, mouse.x, mouse.y);
-                        startDragDataPoint = axes.dataTransform.inverted().map(screenPos);
-                        startDragRect = interactiveEllipse.dataRect;
+                        if (mouse.button === Qt.LeftButton) {
+                            // Update model instead of property directly to preserve binding
+                            shapesModel.setProperty(index, "selected", true);
+                            let screenPos = mapToItem(null, mouse.x, mouse.y);
+                            startDragDataPoint = axes.dataTransform.inverted().map(screenPos);
+                            startDragRect = interactiveEllipse.dataRect;
+                            mouse.accepted = true; // Prevent left-click propagation to background
+                        } else {
+                            mouse.accepted = false; // Allow right-clicks to propagate for context menu
+                        }
                     }
 
                     onPositionChanged: mouse => {
@@ -689,44 +700,47 @@ QGLPreFabs.XYAxes {
             sourceComponent: shapeType === "ellipse" ? ellipseComponent : rectangleComponent
 
             onLoaded: {
-                item.index = Qt.binding(() => index)
-                item.dataX = Qt.binding(() => dataX)
-                item.dataY = Qt.binding(() => dataY)
-                item.dataWidth = Qt.binding(() => dataWidth)
-                item.dataHeight = Qt.binding(() => dataHeight)
-                item.rotation = Qt.binding(() => rotation)
-                item.selected = Qt.binding(() => selected)
+                item.index = Qt.binding(() => index);
+                item.dataX = Qt.binding(() => dataX);
+                item.dataY = Qt.binding(() => dataY);
+                item.dataWidth = Qt.binding(() => dataWidth);
+                item.dataHeight = Qt.binding(() => dataHeight);
+                item.rotation = Qt.binding(() => rotation);
+                item.selected = Qt.binding(() => selected);
             }
         }
     }
 
-    // Context menu MouseArea
+    // Context menu MouseArea - catches clicks on empty space
     MouseArea {
         id: contextMenuArea
         anchors.fill: parent
         z: -2
         acceptedButtons: Qt.RightButton | Qt.LeftButton
+        propagateComposedEvents: true
 
         property point lastClickPos: Qt.point(0, 0)
 
         onPressed: mouse => {
+            lastClickPos = Qt.point(mouse.x, mouse.y);
             if (mouse.button === Qt.LeftButton) {
                 // Deselect all shapes when clicking on background
+                // This will only run if no shape MouseArea handled the click
                 for (let i = 0; i < shapesModel.count; i++) {
-                    shapesModel.setProperty(i, "selected", false)
+                    shapesModel.setProperty(i, "selected", false);
                 }
             }
+            // Accept all mouse buttons so onClicked fires
+            mouse.accepted = true;
         }
 
         onPressAndHold: mouse => {
-            lastClickPos = Qt.point(mouse.x, mouse.y)
-            contextMenu.popup()
+            contextMenu.popup();
         }
 
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton) {
-                lastClickPos = Qt.point(mouse.x, mouse.y)
-                contextMenu.popup()
+                contextMenu.popup();
             }
         }
     }
@@ -739,7 +753,7 @@ QGLPreFabs.XYAxes {
             text: "Add Rectangle"
             onTriggered: {
                 // Get the mouse position in data coordinates
-                let dataPos = axes.dataTransform.inverted().map(contextMenuArea.lastClickPos)
+                let dataPos = axes.dataTransform.inverted().map(contextMenuArea.lastClickPos);
 
                 // Add a new 2x2 rectangle centered at clicked position
                 shapesModel.append({
@@ -750,11 +764,11 @@ QGLPreFabs.XYAxes {
                     "dataHeight": 2,
                     "rotation": 0,
                     "selected": true
-                })
+                });
 
                 // Deselect all other shapes
                 for (let i = 0; i < shapesModel.count - 1; i++) {
-                    shapesModel.setProperty(i, "selected", false)
+                    shapesModel.setProperty(i, "selected", false);
                 }
             }
         }
@@ -763,7 +777,7 @@ QGLPreFabs.XYAxes {
             text: "Add Ellipse"
             onTriggered: {
                 // Get the mouse position in data coordinates
-                let dataPos = axes.dataTransform.inverted().map(contextMenuArea.lastClickPos)
+                let dataPos = axes.dataTransform.inverted().map(contextMenuArea.lastClickPos);
 
                 // Add a new 2x2 ellipse centered at clicked position
                 shapesModel.append({
@@ -774,11 +788,11 @@ QGLPreFabs.XYAxes {
                     "dataHeight": 2,
                     "rotation": 0,
                     "selected": true
-                })
+                });
 
                 // Deselect all other shapes
                 for (let i = 0; i < shapesModel.count - 1; i++) {
-                    shapesModel.setProperty(i, "selected", false)
+                    shapesModel.setProperty(i, "selected", false);
                 }
             }
         }
@@ -791,9 +805,9 @@ QGLPreFabs.XYAxes {
             text: "Delete Shape"
             visible: axes.getSelectedIndex() >= 0
             onTriggered: {
-                let selectedIndex = axes.getSelectedIndex()
+                let selectedIndex = axes.getSelectedIndex();
                 if (selectedIndex >= 0) {
-                    shapesModel.remove(selectedIndex)
+                    shapesModel.remove(selectedIndex);
                 }
             }
         }
